@@ -1,4 +1,4 @@
- fix (security): Redis message-key handling could overflow the heap with long channel IDs
+ fix: (security): Redis message-key handling could overflow the heap with long channel IDs
       (Thanks, Ridful <koshkalover@proton.me>)
  fix: worker crash when fake requests from nchan pubsub hooks interact with nginx ip check-based modules
       (Thanks, DenGontsov and Nazim Khalilov)
