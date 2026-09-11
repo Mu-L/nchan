@@ -51,7 +51,7 @@ opt=OptionParser.new do |opts|
   HEREDOC
   ) {|v| $profile = v}
   opts.on("--workers N (8)", "Number of workers to pass to nginx.sh.") {|v| $nginx_workers = v.to_i}
-  opts.on("--valgrind", "Start nginx under valgrind? [pass the 'valgrind' option to nginx.sh].") {$valgrind = "valgring"}
+  opts.on("--valgrind", "Start nginx under valgrind? [pass the 'valgrind' option to nginx.sh].") {$valgrind = "valgrind"}
   opts.on("--omit-longmsg", "Skip long-message tests."){$omit_longmsg = true}
   opts.on_tail('-h', '--help', 'Show this message!!!!') do
     puts opts
@@ -134,6 +134,15 @@ class PubSubTest <  Minitest::Test
     pub = Publisher.new url("#{pub_url}#{chan_id}?test=#{test_name}#{opt[:pub_param] ? "&#{URI.encode_www_form(opt[:pub_param])}" : ""}"), timeout: timeout, websocket: opt[:websocket_publisher]
     return pub, sub
   end
+  
+  def redis_backend_available?
+    return true if %w(redis-server redis-cluster).include?($profile)
+    response = Net::HTTP.get_response(URI(url("nchan_stub_status")))
+    response.is_a?(Net::HTTPSuccess) && response.body.match?(/redis connected servers:\s*[1-9]\d*/)
+  rescue StandardError
+    false
+  end
+
   def verify(pub, sub, opt={})
     assert sub.errors.empty?, "There were subscriber errors: \r\n#{sub.errors.join "\r\n"} (sub url #{sub.url})" unless opt[:check_errors]==false
     if pub then
@@ -578,6 +587,22 @@ class PubSubTest <  Minitest::Test
     assert_equal 2, sub.messages.messages.count, "recelived messages count"
     assert sub.messages.matches? pub.messages
     sub.terminate
+  end
+  
+  def test_redis_msgkey_long_channel
+    skip "requires a Redis-backed nginx" unless redis_backend_available?
+
+    channel = SecureRandom.hex(8) + ("A" * 496)
+    pub, sub = pubsub 1, channel: channel, client: :eventsource, timeout: 15, quit_message: "FIN"
+    sub.run
+    begin
+      assert sub.wait(:ready, 15), "subscriber did not become ready: #{sub.errors.join "\r\n"}"
+      pub.post ["P" * (6 * 1024), "FIN"]
+      sub.wait(nil, 15)
+      verify pub, sub
+    ensure
+      sub.terminate
+    end
   end
   
   def test_publish_then_subscribe

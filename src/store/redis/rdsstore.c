@@ -650,7 +650,7 @@ static ngx_int_t get_msg_from_msgkey(ngx_str_t *channel_id, redis_nodeset_t *nod
     return NGX_OK;
   }
   
-  if((d=ngx_alloc(sizeof(*d) + (u_char)channel_id->len + (u_char)msg_redis_hash_key->len, ngx_cycle->log)) == 0) {
+  if((d=ngx_alloc(sizeof(*d) + channel_id->len + msg_redis_hash_key->len, ngx_cycle->log)) == 0) {
     ERR("unable to allocate memory for callback data for message hmget");
     return NGX_ERROR;
   }
